@@ -1,18 +1,29 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const moods = pgTable("moods", {
+  id: serial("id").primaryKey(),
+  mood: text("mood").notNull(),
+  recommendations: jsonb("recommendations").notNull(), // Stores array of { type, name, description }
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertMoodSchema = createInsertSchema(moods).omit({ 
+  id: true, 
+  createdAt: true 
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type Mood = typeof moods.$inferSelect;
+export type InsertMood = z.infer<typeof insertMoodSchema>;
+
+export type RecommendationItem = {
+  type: 'song' | 'artist' | 'genre';
+  name: string;
+  description: string;
+};
+
+export type RecommendResponse = {
+  mood: string;
+  recommendations: RecommendationItem[];
+};
