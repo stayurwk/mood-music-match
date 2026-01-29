@@ -50,8 +50,8 @@ export function RecommendationCard({ item, index }: RecommendationCardProps) {
 
     setIsLoading(true);
     try {
-      const url = buildUrl(api.preview.get.path, { name: item.name });
-      const res = await fetch(`${url}?name=${encodeURIComponent(item.name)}`);
+      const url = `${api.preview.get.path}?name=${encodeURIComponent(item.name)}&artist=${encodeURIComponent(item.description.split('by')[1]?.trim() || '')}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch preview");
       
       const data = await res.json();
