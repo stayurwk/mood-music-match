@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
-import { Music, Mic2, Disc } from "lucide-react";
+import { Music, Mic2, Disc, Play, Square, Loader2 } from "lucide-react";
 import type { RecommendationItem } from "@shared/schema";
+import { useState, useRef, useEffect } from "react";
+import { api, buildUrl } from "@shared/routes";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface RecommendationCardProps {
   item: RecommendationItem;
@@ -8,6 +12,12 @@ interface RecommendationCardProps {
 }
 
 export function RecommendationCard({ item, index }: RecommendationCardProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
+
   const getIcon = () => {
     switch (item.type) {
       case "song": return <Music className="w-5 h-5 text-primary" />;
@@ -24,6 +34,65 @@ export function RecommendationCard({ item, index }: RecommendationCardProps) {
     }
   };
 
+  const handlePlayPreview = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (previewUrl) {
+      playAudio(previewUrl);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const url = buildUrl(api.preview.get.path, { name: item.name });
+      const res = await fetch(`${url}?name=${encodeURIComponent(item.name)}`);
+      if (!res.ok) throw new Error("Failed to fetch preview");
+      
+      const data = await res.json();
+      if (data.previewUrl) {
+        setPreviewUrl(data.previewUrl);
+        playAudio(data.previewUrl);
+      } else {
+        toast({
+          title: "Preview unavailable",
+          description: "We couldn't find a preview for this recommendation.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to load song preview.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const playAudio = (url: string) => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(url);
+      audioRef.current.onended = () => setIsPlaying(false);
+    } else {
+      audioRef.current.src = url;
+    }
+    audioRef.current.play();
+    setIsPlaying(true);
+  };
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -35,13 +104,33 @@ export function RecommendationCard({ item, index }: RecommendationCardProps) {
         {getIcon()}
       </div>
       
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2 rounded-lg bg-background/50 border border-white/5">
-          {getIcon()}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-background/50 border border-white/5">
+            {getIcon()}
+          </div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {getLabel()}
+          </span>
         </div>
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {getLabel()}
-        </span>
+
+        {item.type === "song" && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full hover:bg-primary/20"
+            onClick={handlePlayPreview}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isPlaying ? (
+              <Square className="w-4 h-4 fill-primary text-primary" />
+            ) : (
+              <Play className="w-4 h-4 fill-primary text-primary" />
+            )}
+          </Button>
+        )}
       </div>
 
       <h3 className="text-xl font-bold text-white mb-2 line-clamp-1 group-hover:text-primary transition-colors">

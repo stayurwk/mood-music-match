@@ -42,6 +42,22 @@ export const api = {
       },
     },
   },
+  preview: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/preview',
+      input: z.object({
+        name: z.string(),
+        artist: z.string().optional(),
+      }),
+      responses: {
+        200: z.object({
+          previewUrl: z.string().nullable(),
+        }),
+        404: errorSchemas.internal,
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
